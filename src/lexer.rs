@@ -185,6 +185,7 @@ impl ToTokens for String {
                     line_number = line_number + 1;
                     push_collected(token_ref, collected, line_number)?;
                     counting_spaces = true;
+                    push_with_extra(Token::NewLine, token_ref, collected, line_number)?;
                 }
                 ' ' | '\r' | '\t' => push_collected(token_ref, collected, line_number)?,
                 _ => { collected.push(cur) }
@@ -228,6 +229,8 @@ fn push_collected(tokens: &mut Vec<TokenEntry>, collected: &mut Vec<char>, line_
             "Complex" => Token::Complex,
             "del" => Token::Del,
             "float" => Token::Float,
+            "in" => Token::In,
+            "import" => return Err("import statements are not supported.".to_string()),
             v => eval_literal(v.to_string())?
         };
         tokens.push( TokenEntry { token, line_number }
@@ -319,4 +322,6 @@ pub enum Token {
     Matrix,
     Complex,
     RightArrow,
+    NewLine,
+    In,
 }

@@ -12,6 +12,7 @@ use crate::types::Function;
 mod lexer;
 mod types;
 mod parser;
+mod statements;
 
 fn main() {
     let mut args: Vec<String> = env::args().collect();
@@ -71,13 +72,10 @@ fn compile(mut args: Vec<String>) -> Result<(), String> {
 
     let mut programs : Vec<Vec<Function>> = Vec::new();
     for vec in tokens {
-        let mut output = String::new();
-        write!(&mut output, "[ ").unwrap();
-        for item in vec {
-            write!(&mut output, "{} ", item).unwrap();
-        }
-        write!(&mut output, "]").unwrap();
-        println!("{}", output);
+        programs.push(parser::parse_tokens(vec)?);
+    }
+    for program in programs {
+        println!("{:#?}", program);
     }
     Ok(())
 }

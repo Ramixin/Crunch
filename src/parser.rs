@@ -1,15 +1,35 @@
 use crate::lexer::{Token, TokenEntry};
+use crate::statements::{parse_statement};
 use crate::types::{Function, Parameter, Type};
 
 pub(crate) fn parse_tokens(mut tokens: Vec<TokenEntry>) -> Result<Vec<Function> ,String> {
+    let mut functions = Vec::new();
     while !tokens.is_empty() {
         let token = eat(&mut tokens);
-        if !matches!(token.token, Token::Def) {
+        if let Token::Spaces(_) = token.token {
+            let next = eat(&mut tokens);
+            match next.token {
+                Token::Def => functions.push(parse_function(&mut tokens)?),
+                Token::NewLine => {}
+                _ => {
+                    return Err(format!("Expected 'def', but found {:?} on line {}", token.token, token.line_number));
+                }
+            }
+        } else {
             return Err(format!("Expected 'def', but found {:?} on line {}", token.token, token.line_number));
+        }
+        match token.token {
+            Token::Spaces(_) => {
+
+                continue
+            },
+            _ => {
+
+            }
         }
     }
 
-    Ok(todo!())
+    Ok(functions)
 }
 
 fn parse_function(tokens : &mut Vec<TokenEntry>) -> Result<Function ,String> {
@@ -21,7 +41,7 @@ fn parse_function(tokens : &mut Vec<TokenEntry>) -> Result<Function ,String> {
     let expect = eat(tokens);
     match expect.token {
         Token::OpenParenthesis => {}
-        t => { return Err(format!("Expected ')' after function name, but found {:?} on line {}", t, expect.line_number)) }
+        t => { return Err(format!("Expected '(' after function name, but found {:?} on line {}", t, expect.line_number)) }
     }
     let mut parameters = Vec::new();
     if !matches!(peek(tokens), Token::CloseParenthesis) {
@@ -49,8 +69,40 @@ fn parse_function(tokens : &mut Vec<TokenEntry>) -> Result<Function ,String> {
     } else {
         None
     };
+    let expect = eat(tokens);
+    match expect.token {
+        Token::Colon => {}
+        t => { return Err(format!("Expected ':' after function parameters, but found {:?} on line {}", t, expect.line_number)) }
+    }
+    let expect = eat(tokens);
+    match expect.token {
+        Token::NewLine => {}
+        t => { return Err(format!("Expected NewLine after function declaration, but found {:?} on line {}", t, expect.line_number)) }
+    }
+    let spacing_req = match peek(tokens) {
+        Token::Spaces(v) => *v,
+        t => { return Err(format!("Expected spaces before first statement of the function, but found {:?} on line {}", t, expect.line_number)) }
+    };
+    let mut statements = Vec::new();
+    loop {
+        match parse_statement(tokens, Some(spacing_req))? {
+            Some(v) => statements.push(v),
+            None => {}
+        }
+        match peek(tokens) {
+            Token::Spaces(count) => {
+                if *count < spacing_req { break; }
+                else if *count == spacing_req {}
+                else {
+                    return Err(format!("found extra indentation on line {}", eat(tokens).line_number));
+                }
+            }
+            Token::EOF => break,
+            _ => {}
+        }
+    }
 
-    Ok(Function { name, parameters, return_type })
+    Ok(Function { name, parameters, return_type, statements })
 }
 
 fn parse_var_dec(tokens : &mut Vec<TokenEntry>) -> Result<(String, Type), String> {
@@ -67,7 +119,7 @@ fn parse_var_dec(tokens : &mut Vec<TokenEntry>) -> Result<(String, Type), String
     Ok((name, parse_type(tokens)?))
 }
 
-fn parse_type(tokens : &mut Vec<TokenEntry>) -> Result<Type ,String> {
+pub(crate) fn parse_type(tokens : &mut Vec<TokenEntry>) -> Result<Type ,String> {
     let token = eat(tokens);
     Ok(match token.token {
         Token::IntType => Type::Int,
@@ -99,11 +151,16 @@ fn parse_type(tokens : &mut Vec<TokenEntry>) -> Result<Type ,String> {
     })
 }
 
-fn eat(tokens: &mut Vec<TokenEntry>) -> TokenEntry {
-    tokens.remove(0)
+ pub(crate) fn eat(tokens: &mut Vec<TokenEntry>) -> TokenEntry {
+     if tokens.is_empty() {
+         TokenEntry { token : Token::EOF, line_number: 0 }
+     } else {
+         tokens.remove(0)
+     }
+
 }
 
-fn peek(tokens: &mut Vec<TokenEntry>) -> &Token {
+pub(crate) fn peek(tokens: &mut Vec<TokenEntry>) -> &Token {
     if tokens.len() == 0 { return &Token::EOF }
     &tokens.get(0).unwrap().token
 }
